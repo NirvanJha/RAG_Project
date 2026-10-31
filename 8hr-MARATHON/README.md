@@ -52,7 +52,7 @@ graph TD
 ├── evals/               # RAGAS evaluation suite + Streamlit 3-tab demo
 ├── ui/                  # Streamlit chat interface with reasoning step transparency
 ├── processed_data/      # Auto-generated — parsed & chunked JSON output per document
-├── docs/                # Architectural and operational guides (11 docs)
+├── DOCS/                # Architectural and operational guides (11 docs)
 ├── DATA/                # Sample datasets (True vs Noisy documentation)
 └── requirements.txt     # Pinned dependencies
 ```
@@ -147,23 +147,47 @@ streamlit run ui/app.py
 streamlit run evals/app.py
 ```
 
+### 6. Run the unit tests (offline, no API keys)
+
+```powershell
+python -m pytest tests -q
+```
+
+---
+
+## Changelog — retrieval-quality fixes
+
+| Issue | Impact | Fix |
+|-------|--------|-----|
+| Chunker only split on `
+
+`, but pypdf/HTML loaders emit single `
+` | Whole documents became **one** chunk (max 62,725 chars). Embedding/reranker silently truncated them, and any chunk > 25K chars was dropped by the responder's context budget → empty context | Recursive splitter (`
+
+` → `
+` → `. ` → space → hard cut) with 200-char overlap. Max chunk now 1,697 chars; 80 → 189 chunks on the sample corpus |
+| PDF pages recovered by the pdfplumber fallback were appended at the end | Out-of-order text, broken chunk context | Pages kept in reading order, joined with a paragraph break |
+| Router compared the planner output with `== "CONVERSATIONAL"` | `"CONVERSATIONAL."` or `"'CONVERSATIONAL'"` was sent to Qdrant as a search query | Normalised `is_conversational()` check, unit-tested |
+| Full thread history sent to the LLM every turn | Prompt grows linearly → Groq TPM errors on long chats | 6-message history window in planner and responder |
+| Responder prompt allowed answering beyond context | Lower faithfulness, no traceability | Context numbered `[1]…[n]`, model must cite, say "not found" when unsupported, and ignore instructions inside retrieved text |
+
 ---
 
 ## Documentation Index
 
 | # | Guide | What it covers |
 |---|-------|---------------|
-| 01 | [System Overview](docs/01_SYSTEM_OVERVIEW.md) | High-level vision and end-to-end flow |
-| 02 | [Ingestion Engine](docs/02_INGESTION_ENGINE.md) | Document parsing and indexing pipeline |
-| 03 | [Node Intelligence](docs/03_NODE_INTELLIGENCE.md) | Planner, Retriever, Responder internals |
-| 04 | [Observability](docs/04_TRACING_AND_OBSERVABILITY.md) | Logfire + LangSmith tracing |
-| 05 | [Environment Variables](docs/05_ENVIRONMENT_VARIABLES.md) | All env vars and configuration reference |
-| 06 | [Known Gotchas](docs/06_KNOWN_GOTCHAS.md) | Non-obvious bugs and architectural decisions |
-| 07 | [FlashRank Reranking](docs/07_FLASHRANK_RERANKING.md) | Local semantic reranker deep-dive |
-| 08 | [Guardrails](docs/08_GUARDRAILS.md) | NeMo Guardrails implementation |
-| 09 | [LLM Gateway](docs/09_LLM_GATEWAY.md) | Portkey routing, fallback, and observability |
-| 10 | [Evals](docs/10_EVALS.md) | RAGAS metrics theory and token budget |
-| 11 | [Evals Pipeline](docs/11_EVALS_PIPELINE.md) | Live eval pipeline and Streamlit demo |
+| 01 | [System Overview](DOCS/01_SYSTEM_OVERVIEW.md) | High-level vision and end-to-end flow |
+| 02 | [Ingestion Engine](DOCS/02_INGESTION_ENGINE.md) | Document parsing and indexing pipeline |
+| 03 | [Node Intelligence](DOCS/03_NODE_INTELLIGENCE.md) | Planner, Retriever, Responder internals |
+| 04 | [Observability](DOCS/04_TRACING_AND_OBSERVABILITY.md) | Logfire + LangSmith tracing |
+| 05 | [Environment Variables](DOCS/05_ENVIRONMENT_VARIABLES.md) | All env vars and configuration reference |
+| 06 | [Known Gotchas](DOCS/06_KNOWN_GOTCHAS.md) | Non-obvious bugs and architectural decisions |
+| 07 | [FlashRank Reranking](DOCS/07_FLASHRANK_RERANKING.md) | Local semantic reranker deep-dive |
+| 08 | [Guardrails](DOCS/08_GUARDRAILS.md) | NeMo Guardrails implementation |
+| 09 | [LLM Gateway](DOCS/09_LLM_GATEWAY.md) | Portkey routing, fallback, and observability |
+| 10 | [Evals](DOCS/10_EVALS.md) | RAGAS metrics theory and token budget |
+| 11 | [Evals Pipeline](DOCS/11_EVALS_PIPELINE.md) | Live eval pipeline and Streamlit demo |
 
 ---
 

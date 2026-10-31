@@ -5,13 +5,23 @@ import logfire
 # Portkey-backed LLM: fallback + cache + retry — same .invoke() interface as ChatGroq
 llm = get_langchain_llm(feature="planner")
 
+
+def is_conversational(decision: str) -> bool:
+    """
+    LLMs don't follow "output ONLY X" exactly — they return "CONVERSATIONAL.",
+    "'CONVERSATIONAL'" or "Conversational". An exact == check sent those to
+    the retriever as a search query, so normalise before comparing.
+    """
+    return decision.strip().strip("'\"`.").upper() == "CONVERSATIONAL"
+
+
 def planner_node(state: AgentState):
     """
     The Planner determines if a search is needed based on the ENTIRE conversation.
     """
     # Get the conversation history (excluding the latest message)
     history = ""
-    for msg in state["messages"][:-1]:
+    for msg in state["messages"][:-1][-6:]:  # same window as the responder
         role = "User" if msg["role"] == "user" else "Assistant"
         history += f"{role}: {msg['content']}\n"
     
@@ -38,7 +48,7 @@ def planner_node(state: AgentState):
         decision = llm.invoke(prompt).content.strip()
         logfire.info(f"Intent identified: {decision}")
     
-    if decision == "CONVERSATIONAL":
+    if is_conversational(decision):
         return {
             "current_query": "CONVERSATIONAL",
             "status": "Handling conversationally (using memory)...",

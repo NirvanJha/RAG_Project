@@ -13,13 +13,14 @@ def parse_pdf(file_path: str) -> str:
             total_pages = len(reader.pages)
             logfire.info(f"PDF has {total_pages} pages.")
 
-            text_parts: list[str] = []
+            # Indexed by page so pdfplumber fallbacks land in reading order, not at the end.
+            text_parts: list[str] = [""] * total_pages
             blank_pages: list[int] = []
 
             for i, page in enumerate(reader.pages):
                 text = page.extract_text() or ""
                 if text.strip():
-                    text_parts.append(text)
+                    text_parts[i] = text
                 else:
                     blank_pages.append(i + 1)
 
@@ -33,11 +34,12 @@ def parse_pdf(file_path: str) -> str:
                             page = pdf.pages[page_num - 1]
                             fallback_text = page.extract_text() or ""
                             if fallback_text.strip():
-                                text_parts.append(fallback_text)
+                                text_parts[page_num - 1] = fallback_text
                 except Exception as plumber_err:
                     logfire.warning(f"pdfplumber fallback failed: {plumber_err}")
 
-            full_text = "\n".join(text_parts)
+            # Blank line between pages gives the chunker a paragraph boundary.
+            full_text = "\n\n".join(p for p in text_parts if p.strip())
 
             if not full_text.strip():
                 logfire.warning(f"No text extracted from {file_path}. File may be fully image-based.")
