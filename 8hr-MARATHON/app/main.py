@@ -14,8 +14,8 @@ from fastapi import FastAPI, Response
 from app.agents.graph import rag_agent
 from app.guardrails import initialize_rails, guard
 
-from pydantic import BaseModel
-from typing import Optional
+import uuid
+from pydantic import BaseModel, Field
 
 
 # Initialize FastAPI
@@ -28,7 +28,9 @@ def startup_event():
 
 class QueryRequest(BaseModel):
     q: str
-    thread_id: Optional[str] = "default_user"
+    # A shared default meant every client that omitted thread_id read and wrote
+    # the same conversation memory. Each request now gets its own thread.
+    thread_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     
     
 @app.get("/")
